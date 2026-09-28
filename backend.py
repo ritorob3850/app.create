@@ -1,41 +1,26 @@
 """
-Backend Module — Computational Logic
-=====================================
-Handles all processing logic for the app.
-The frontend sends the user's name here, and this module
-processes it and returns the formatted output.
+Backend Module — Core Logic
+============================
+Handles name processing and greeting generation.
+The frontend calls this module and displays the returned message.
 """
 
 
-def process_username(name: str) -> dict:
+def generate_greeting(user_name: str) -> str:
     """
-    Core computation: takes a username, validates and processes it,
-    then returns structured output for the frontend to display.
+    Process the user-provided name and build a personalised greeting.
 
     Args:
-        name: The raw name string from user input.
+        user_name: Raw name string coming from the frontend input.
 
     Returns:
-        A dict with the greeting message and metadata.
+        A greeting string ready for display.
     """
-    # --- Input validation ---
-    cleaned_name = name.strip()
+    sanitised = (user_name or "").strip()
 
-    if not cleaned_name:
-        return {
-            "success": False,
-            "message": "",
-            "display_name": "",
-            "error": "Name cannot be empty. Please enter a valid name.",
-        }
+    if not sanitised:
+        return "Hey there! Drop your name in the box above so we can say a proper hello."
 
-    # --- Processing logic ---
-    display_name = cleaned_name.title()  # Capitalize properly
-    greeting_message = f"Hello, {display_name}! 👋 Welcome to the Dashboard."
-
-    return {
-        "success": True,
-        "message": greeting_message,
-        "display_name": display_name,
-        "error": None,
-    }
+    # Capitalise each word for a polished look
+    formatted = sanitised.title()
+    return f"Hello, {formatted}! Great to have you on the dashboard. 🎉"
