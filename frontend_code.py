@@ -1,3 +1,4 @@
+
 """
 Frontend Module — Streamlit Dashboard
 ======================================
@@ -6,7 +7,7 @@ for processing, and renders the result on a simple dashboard.
 """
 
 import streamlit as st
-from backend import generate_greeting
+from backend_code import generate_greeting
 
 # ── Page Setup ───────────────────────────────────────────────
 st.set_page_config(page_title="Greeting Dashboard", page_icon="👋", layout="centered")
