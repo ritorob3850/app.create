@@ -1,13 +1,14 @@
 """
-Frontend Module — Ultron Conversational AI UI (v2.6)
+Frontend Module — Ultron Conversational AI UI (v2.7)
 =====================================================
 Features:
 - Identity Login Gateway (Name Input)
 - Claude-style Dynamic Greetings (Time-based + Random prompt)
 - Robust Dark & Light Themes (Crystal-clear contrast, no visual glitches)
-- Zero clutter (No suggestion boxes at start)
+- Persistent API Key Management with Status Badges
+- Auto-detection if API Key is pasted in chat
 - Multi-LLM Provider Engine (Google Gemini, Local Ollama, Groq)
-- Comprehensive Settings Panel (Theme, Provider, Model, Temperature, Prompt, API Key)
+- Comprehensive Settings Panel
 """
 
 import streamlit as st
@@ -48,6 +49,12 @@ if "model_name" not in st.session_state:
 if "temperature" not in st.session_state:
     st.session_state.temperature = 0.7
 
+if "gemini_key" not in st.session_state:
+    st.session_state.gemini_key = ""
+
+if "groq_key" not in st.session_state:
+    st.session_state.groq_key = ""
+
 
 # ── Curated Clean Theme Definitions ───────────────────────────
 is_dark = "Dark" in st.session_state.app_theme
@@ -86,7 +93,6 @@ if is_dark:
     }
     """
 else:
-    # Crystal-clear, modern light theme
     theme_css = """
     :root {
         --bg-main: #f8fafc;
@@ -156,7 +162,7 @@ st.markdown(
         max-width: 860px;
     }}
     
-    /* Brand Header in Sidebar */
+    /* Brand Header */
     .sidebar-brand {{
         display: flex;
         align-items: center;
@@ -266,7 +272,7 @@ st.markdown(
         border-color: var(--accent) !important;
     }}
 
-    /* Hero Banner (Clean Claude Style) */
+    /* Hero Banner */
     .hero-container {{
         text-align: center;
         padding: 60px 10px 30px 10px;
@@ -293,7 +299,7 @@ st.markdown(
 
 
 # ═════════════════════════════════════════════════════════════
-# STAGE 1: LOGIN GATEWAY (NAME IDENTITY SCREEN)
+# STAGE 1: LOGIN GATEWAY
 # ═════════════════════════════════════════════════════════════
 if not st.session_state.user_name:
     st.markdown(
@@ -341,7 +347,7 @@ with st.sidebar:
         <div class="sidebar-brand">
             <span class="brand-icon">🤖</span>
             <span class="brand-name">ULTRON</span>
-            <span class="brand-badge">v2.6</span>
+            <span class="brand-badge">v2.7</span>
         </div>
         """,
         unsafe_allow_html=True,
@@ -371,7 +377,7 @@ with st.sidebar:
             st.session_state.messages = []
             st.rerun()
 
-    st.markdown("<div style='height: 12vh;'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='height: 10vh;'></div>", unsafe_allow_html=True)
     st.divider()
 
     # 2. Settings Panel Anchored at the Bottom
@@ -399,47 +405,51 @@ with st.sidebar:
 
         # Model Selection based on Provider
         if "Gemini" in selected_provider:
-            model_options = ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-1.5-pro"]
+            model_options = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"]
             st.session_state.model_name = st.selectbox("📦 Gemini Model", model_options)
             
-            api_key_input = st.text_input(
+            gem_input = st.text_input(
                 "🔑 Gemini API Key",
                 type="password",
+                value=st.session_state.gemini_key,
                 placeholder="Paste Gemini API key (AIza...)",
                 help="Get a free key from Google AI Studio using personal @gmail.com",
             )
-            st.markdown(
-                """
-                <div style="font-size: 0.8rem; color: #8c93a4; margin-top: 4px;">
-                    🌟 <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color: #ff4d5a; text-decoration: none;">Get Free Gemini Key (AI Studio)</a>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
+            if gem_input != st.session_state.gemini_key:
+                st.session_state.gemini_key = gem_input.strip()
+
+            if st.session_state.gemini_key:
+                st.success("🟢 Gemini Key Active")
+            else:
+                st.markdown(
+                    """
+                    <div style="font-size: 0.8rem; color: #8c93a4; margin-top: 4px;">
+                        🌟 <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color: #ff4d5a; text-decoration: none;">Get Free Gemini Key (AI Studio)</a>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
 
         elif "Ollama" in selected_provider:
             ollama_models = get_available_ollama_models()
             st.session_state.model_name = st.selectbox("📦 Local Ollama Model", ollama_models)
-            api_key_input = ""
-            st.success("⚡ 100% Free & Local — No API key needed!")
+            st.success("⚡ 100% Free & Local — Zero API key needed!")
             st.caption("Ensure Ollama is running (`ollama serve`).")
 
         else:  # Groq
             groq_models = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768"]
             st.session_state.model_name = st.selectbox("📦 Groq Model", groq_models)
-            api_key_input = st.text_input(
+            grq_input = st.text_input(
                 "🔑 Groq API Key",
                 type="password",
+                value=st.session_state.groq_key,
                 placeholder="Paste Groq key (gsk_...)",
             )
-            st.markdown(
-                """
-                <div style="font-size: 0.8rem; color: #8c93a4; margin-top: 4px;">
-                    ⚡ <a href="https://console.groq.com/keys" target="_blank" style="color: #ff4d5a; text-decoration: none;">Get Free Groq Key (Instant)</a>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
+            if grq_input != st.session_state.groq_key:
+                st.session_state.groq_key = grq_input.strip()
+
+            if st.session_state.groq_key:
+                st.success("🟢 Groq Key Active")
 
         st.divider()
 
@@ -487,6 +497,16 @@ for message in st.session_state.messages:
 
 # ── Chat Input & Streaming LLM Response ───────────────────────
 if user_prompt := st.chat_input("Message Ultron..."):
+    # Check if user accidentally pasted their API key in the main chat prompt
+    if user_prompt.strip().startswith("AIzaSy"):
+        st.session_state.gemini_key = user_prompt.strip()
+        st.success("✅ Gemini API Key detected and saved! You can now chat with Ultron.")
+        st.rerun()
+    elif user_prompt.strip().startswith("gsk_"):
+        st.session_state.groq_key = user_prompt.strip()
+        st.success("✅ Groq API Key detected and saved! You can now chat with Ultron.")
+        st.rerun()
+
     # 1. Append & render user message
     st.session_state.messages.append({"role": "user", "content": user_prompt})
     with st.chat_message("user", avatar="👤"):
@@ -494,12 +514,14 @@ if user_prompt := st.chat_input("Message Ultron..."):
 
     # 2. Stream Ultron's response from backend
     provider_name = "Gemini" if "Gemini" in st.session_state.provider else ("Ollama" if "Ollama" in st.session_state.provider else "Groq")
+    active_key = st.session_state.gemini_key if provider_name == "Gemini" else st.session_state.groq_key
+
     with st.chat_message("assistant", avatar="🤖"):
         response_generator = generate_llm_response(
             messages=st.session_state.messages,
             provider=provider_name,
             model_name=st.session_state.model_name,
-            api_key=api_key_input if 'api_key_input' in locals() else None,
+            api_key=active_key,
             system_prompt=system_prompt if 'system_prompt' in locals() else ULTRON_DEFAULT_PROMPT,
             temperature=st.session_state.temperature,
         )

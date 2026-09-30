@@ -2,7 +2,7 @@
 Backend Module — Ultron Multi-Provider LLM Engine
 =================================================
 Powers conversational AI 'Ultron' with:
-- Google Gemini (gemini-2.5-flash, gemini-1.5-pro, etc.)
+- Google Gemini (gemini-2.5-flash, gemini-2.0-flash, gemini-1.5-flash, gemini-1.5-pro)
 - Ollama (Local offline AI: llama3, mistral, deepseek-r1, phi3, gemma2, etc.)
 - Groq (llama-3.3-70b-versatile, etc.)
 - Dynamic time-based Claude-style greetings
@@ -87,12 +87,23 @@ def get_dynamic_greeting(user_name: str = "") -> str:
 
 
 def resolve_api_key(passed_key: str = None, provider: str = "Gemini") -> str:
-    """Resolves API key from parameter, Streamlit secrets, or environment variables."""
+    """Resolves API key from parameter, session state, Streamlit secrets, or environment variables."""
+    # 1. Passed argument
     if passed_key and passed_key.strip():
         return passed_key.strip()
 
-    # Check Streamlit secrets
+    # 2. Streamlit session state & secrets
     if st is not None:
+        try:
+            if provider == "Gemini" and st.session_state.get("gemini_key"):
+                return str(st.session_state["gemini_key"]).strip()
+            if provider == "Groq" and st.session_state.get("groq_key"):
+                return str(st.session_state["groq_key"]).strip()
+            if st.session_state.get("api_key"):
+                return str(st.session_state["api_key"]).strip()
+        except Exception:
+            pass
+
         try:
             if provider == "Gemini":
                 if "GEMINI_API_KEY" in st.secrets:
@@ -105,7 +116,7 @@ def resolve_api_key(passed_key: str = None, provider: str = "Gemini") -> str:
         except Exception:
             pass
 
-    # Check environment variables
+    # 3. Environment variables
     env_keys = ["GEMINI_API_KEY", "GROQ_API_KEY", "LLM_API_KEY"] if provider == "Gemini" else ["GROQ_API_KEY", "LLM_API_KEY"]
     for env_var in env_keys:
         val = os.environ.get(env_var, "").strip()
@@ -180,12 +191,10 @@ def generate_llm_response(
         if not key:
             yield (
                 "### ⚡ Gemini API Key Required\n\n"
-                "To use Google Gemini, please paste your **Gemini API Key** in the sidebar settings.\n\n"
-                "👉 **Get a Free Key in 10 seconds:**\n"
-                "1. Open a Chrome **Incognito Window** (`Ctrl+Shift+N`)\n"
-                "2. Go to: **[aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)**\n"
-                "3. Sign in with your **personal `@gmail.com` account** (NOT a school/work email)\n"
-                "4. Click **Create API Key** and paste it here!"
+                "Please enter your **Gemini API Key** in the sidebar settings:\n\n"
+                "1. Open **⚙️ Settings & Configuration** in the left sidebar.\n"
+                "2. Paste your `AIzaSy...` key into the **🔑 Gemini API Key** box.\n\n"
+                "👉 **Get a free key:** [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)"
             )
             return
 
@@ -210,6 +219,7 @@ def generate_llm_response(
                 temperature=temperature,
             )
 
+            # Preferred target model fallback list
             target_model = model_name if model_name.startswith("gemini-") else "gemini-2.5-flash"
 
             response = client.models.generate_content_stream(
@@ -223,7 +233,7 @@ def generate_llm_response(
                     yield chunk.text
             return
         except Exception as e:
-            yield f"❌ **Gemini LLM Error**: {str(e)}"
+            yield f"❌ **Gemini Error**: {str(e)}"
             return
 
     # ── 3. GROQ ───────────────────────────────────────────────────
@@ -232,7 +242,7 @@ def generate_llm_response(
         if not key:
             yield (
                 "### ⚡ Groq API Key Required\n\n"
-                "Please paste your **Groq API Key** in the sidebar settings, or switch provider to **Ollama** / **Gemini**."
+                "Please paste your **Groq API Key** in the sidebar settings."
             )
             return
 
