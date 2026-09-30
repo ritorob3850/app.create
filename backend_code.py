@@ -1,9 +1,7 @@
 """
-Backend Module — Multi-LLM Engine (Gemini & Groq)
-==================================================
-Powers conversational AI like ChatGPT and Claude using either:
-- Google Gemini (gemini-2.5-flash)
-- Groq (llama-3.3-70b-versatile / llama-3.1-8b-instant)
+Backend Module — Ultron LLM Engine
+===================================
+Powers the conversational AI assistant 'Ultron' using Google Gemini and Groq.
 """
 
 import os
@@ -22,30 +20,43 @@ except ImportError:
     Groq = None
 
 
+ULTRON_DEFAULT_PROMPT = (
+    "You are Ultron, a sophisticated, hyper-intelligent, and capable AI assistant. "
+    "You provide clear, well-structured, insightful, and accurate answers. "
+    "Maintain a sleek, confident, and engaging tone while remaining deeply helpful."
+)
+
+
 def generate_llm_response(
     messages: List[Dict[str, str]],
     api_key: str = None,
-    system_prompt: str = "You are a helpful, intelligent, and friendly AI assistant like ChatGPT or Claude."
+    system_prompt: str = ULTRON_DEFAULT_PROMPT
 ) -> Generator[str, None, None]:
     """
-    Sends chat history to the selected LLM and streams back the assistant response.
-    Auto-detects whether the key is Gemini (AIza...) or Groq (gsk_...).
+    Sends conversation history to the selected LLM and streams back Ultron's response.
+    Supports auto-detection between Groq (gsk_...) and Gemini (AIza...).
     """
-    key = (api_key or os.environ.get("LLM_API_KEY") or os.environ.get("GEMINI_API_KEY") or os.environ.get("GROQ_API_KEY") or "").strip()
+    key = (
+        api_key
+        or os.environ.get("LLM_API_KEY")
+        or os.environ.get("GROQ_API_KEY")
+        or os.environ.get("GEMINI_API_KEY")
+        or ""
+    ).strip()
 
     if not key:
         yield (
-            "⚠️ **API Key Required**\n\n"
-            "Please paste your free API key in the sidebar:\n\n"
-            "- ⚡ **Groq Key (Instant & Free):** [console.groq.com/keys](https://console.groq.com/keys)\n"
-            "- 🌟 **Gemini Key (Free):** [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) *(use personal Gmail)*"
+            "### ⚡ Ultron Systems Standby\n\n"
+            "To activate Ultron, please enter your free **API Key** in the Settings panel at the bottom of the sidebar.\n\n"
+            "* 🚀 **Groq Key (Instant & Free):** [console.groq.com/keys](https://console.groq.com/keys)\n"
+            "* 🌟 **Gemini Key (Google AI Studio):** [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)"
         )
         return
 
     # Check if Groq key
     if key.startswith("gsk_"):
         if Groq is None:
-            yield "❌ `groq` library not installed. Please run `pip install groq`."
+            yield "❌ `groq` library is missing. Please run `pip install groq`."
             return
         try:
             client = Groq(api_key=key)
@@ -65,12 +76,12 @@ def generate_llm_response(
                     yield content
             return
         except Exception as e:
-            yield f"❌ **Groq LLM Error**: {str(e)}"
+            yield f"❌ **Ultron Core Error (Groq)**: {str(e)}"
             return
 
     # Otherwise treat as Gemini key
     if genai is None:
-        yield "❌ `google-genai` library not installed. Please run `pip install google-genai`."
+        yield "❌ `google-genai` library is missing. Please run `pip install google-genai`."
         return
 
     try:
@@ -101,4 +112,4 @@ def generate_llm_response(
                 yield chunk.text
 
     except Exception as e:
-        yield f"❌ **Gemini Error**: {str(e)}"
+        yield f"❌ **Ultron Core Error (Gemini)**: {str(e)}"
