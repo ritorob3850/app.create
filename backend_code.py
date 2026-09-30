@@ -2,7 +2,7 @@
 Backend Module — Ultron Multi-Provider LLM Engine
 =================================================
 Powers conversational AI 'Ultron' with:
-- Google Gemini (gemini-2.5-flash, gemini-2.0-flash, gemini-1.5-flash, gemini-1.5-pro)
+- Google Gemini with Automatic 503/429 Fallback & Resilient Failover
 - Ollama (Local offline AI: llama3, mistral, deepseek-r1, phi3, gemma2, etc.)
 - Groq (llama-3.3-70b-versatile, etc.)
 - Dynamic time-based Claude-style greetings
@@ -151,6 +151,7 @@ def generate_llm_response(
 ) -> Generator[str, None, None]:
     """
     Unified streaming generator supporting Google Gemini, Ollama (Local), and Groq.
+    Includes automated failover for Gemini 503 high demand spikes.
     """
     # ── 1. OLLAMA (Local & Free) ───────────────────────────────────
     if provider.lower() == "ollama":
@@ -185,7 +186,7 @@ def generate_llm_response(
             )
             return
 
-    # ── 2. GOOGLE GEMINI ──────────────────────────────────────────
+    # ── 2. GOOGLE GEMINI (With Auto-Failover) ──────────────────────
     if provider.lower() == "gemini":
         key = resolve_api_key(api_key, "Gemini")
         if not key:
@@ -219,18 +220,38 @@ def generate_llm_response(
                 temperature=temperature,
             )
 
-            target_model = model_name if model_name.startswith("gemini-") else "gemini-3.8-flash"
+            # Build resilient fallback queue for 503 spike resilience
+            candidates = [model_name, "gemini-2.5-flash", "gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"]
+            seen = set()
+            models_to_try = [m for m in candidates if m and not (m in seen or seen.add(m))]
 
-            response = client.models.generate_content_stream(
-                model=target_model,
-                contents=contents,
-                config=config,
-            )
+            last_error = None
+            for candidate_model in models_to_try:
+                try:
+                    response = client.models.generate_content_stream(
+                        model=candidate_model,
+                        contents=contents,
+                        config=config,
+                    )
+                    has_output = False
+                    for chunk in response:
+                        if chunk.text:
+                            has_output = True
+                            yield chunk.text
+                    if has_output:
+                        return
+                except Exception as stream_err:
+                    err_str = str(stream_err)
+                    # If 503 high demand or 404, try next candidate model seamlessly
+                    if "503" in err_str or "UNAVAILABLE" in err_str or "404" in err_str or "NOT_FOUND" in err_str:
+                        last_error = err_str
+                        continue
+                    else:
+                        raise stream_err
 
-            for chunk in response:
-                if chunk.text:
-                    yield chunk.text
-            return
+            if last_error:
+                yield f"⚠️ **Gemini High Demand Notice**: {last_error}\n\n*Please send your message again in a few seconds.*"
+
         except Exception as e:
             yield f"❌ **Gemini Error**: {str(e)}"
             return
