@@ -219,8 +219,7 @@ def generate_llm_response(
                 temperature=temperature,
             )
 
-            # Preferred target model fallback list
-            target_model = model_name if model_name.startswith("gemini-") else "gemini-2.5-flash"
+            target_model = model_name if model_name.startswith("gemini-") else "gemini-3.8-flash"
 
             response = client.models.generate_content_stream(
                 model=target_model,
