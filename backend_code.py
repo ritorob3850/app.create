@@ -1,10 +1,12 @@
 """
-Backend Module — Ultron LLM Engine & Dynamic Personalization
-============================================================
+Backend Module — Ultron Multi-Provider LLM Engine
+=================================================
 Powers conversational AI 'Ultron' with:
+- Google Gemini (gemini-2.5-flash, gemini-1.5-pro, etc.)
+- Ollama (Local offline AI: llama3, mistral, deepseek-r1, phi3, gemma2, etc.)
+- Groq (llama-3.3-70b-versatile, etc.)
 - Dynamic time-based Claude-style greetings
-- Multi-LLM provider support (Groq & Google Gemini)
-- Automatic key detection via parameters, st.secrets, and env variables
+- Temperature, custom personas, and streaming support
 """
 
 import os
@@ -12,19 +14,26 @@ import random
 from datetime import datetime
 from typing import List, Dict, Generator
 
-# Try importing Streamlit for secrets detection
+# Streamlit secrets check
 try:
     import streamlit as st
 except ImportError:
     st = None
 
-# Try importing SDKs
+# Google GenAI SDK
 try:
     from google import genai
     from google.genai import types
 except ImportError:
     genai = None
 
+# Ollama SDK (local)
+try:
+    import ollama
+except ImportError:
+    ollama = None
+
+# Groq SDK
 try:
     from groq import Groq
 except ImportError:
@@ -55,8 +64,6 @@ def get_dynamic_greeting(user_name: str = "") -> str:
     """
     Generates a personalized Claude-style dynamic greeting based on time of day
     and a randomized thoughtful prompt.
-
-    Example: 'Good afternoon, ritorob. What are we building today?'
     """
     salutation = get_time_based_salutation()
     clean_name = (user_name or "").strip().title()
@@ -72,13 +79,14 @@ def get_dynamic_greeting(user_name: str = "") -> str:
         "Where shall we start?",
         "I'm at your command. What are we solving today?",
         "How can I help you innovate today?",
+        "Good to see you!",
     ]
 
     selected_prompt = random.choice(claude_prompts)
     return f"{salutation}{name_clause}. {selected_prompt}"
 
 
-def resolve_api_key(passed_key: str = None) -> str:
+def resolve_api_key(passed_key: str = None, provider: str = "Gemini") -> str:
     """Resolves API key from parameter, Streamlit secrets, or environment variables."""
     if passed_key and passed_key.strip():
         return passed_key.strip()
@@ -86,17 +94,20 @@ def resolve_api_key(passed_key: str = None) -> str:
     # Check Streamlit secrets
     if st is not None:
         try:
+            if provider == "Gemini":
+                if "GEMINI_API_KEY" in st.secrets:
+                    return str(st.secrets["GEMINI_API_KEY"]).strip()
+            elif provider == "Groq":
+                if "GROQ_API_KEY" in st.secrets:
+                    return str(st.secrets["GROQ_API_KEY"]).strip()
             if "LLM_API_KEY" in st.secrets:
                 return str(st.secrets["LLM_API_KEY"]).strip()
-            if "GROQ_API_KEY" in st.secrets:
-                return str(st.secrets["GROQ_API_KEY"]).strip()
-            if "GEMINI_API_KEY" in st.secrets:
-                return str(st.secrets["GEMINI_API_KEY"]).strip()
         except Exception:
             pass
 
     # Check environment variables
-    for env_var in ["LLM_API_KEY", "GROQ_API_KEY", "GEMINI_API_KEY"]:
+    env_keys = ["GEMINI_API_KEY", "GROQ_API_KEY", "LLM_API_KEY"] if provider == "Gemini" else ["GROQ_API_KEY", "LLM_API_KEY"]
+    for env_var in env_keys:
         val = os.environ.get(env_var, "").strip()
         if val:
             return val
@@ -104,43 +115,136 @@ def resolve_api_key(passed_key: str = None) -> str:
     return ""
 
 
+def get_available_ollama_models() -> List[str]:
+    """Fetches list of installed local Ollama models."""
+    if ollama is None:
+        return ["llama3:latest", "mistral", "deepseek-r1", "phi3"]
+    try:
+        models_info = ollama.list()
+        # Handle dict or object response from ollama.list()
+        if isinstance(models_info, dict) and "models" in models_info:
+            return [m.get("name") or m.get("model") for m in models_info["models"]]
+        elif hasattr(models_info, "models"):
+            return [m.model or m.name for m in models_info.models]
+    except Exception:
+        pass
+    return ["llama3:latest", "mistral", "deepseek-r1", "phi3"]
+
+
 def generate_llm_response(
     messages: List[Dict[str, str]],
+    provider: str = "Gemini",
+    model_name: str = "gemini-2.5-flash",
     api_key: str = None,
-    system_prompt: str = ULTRON_DEFAULT_PROMPT
+    system_prompt: str = ULTRON_DEFAULT_PROMPT,
+    temperature: float = 0.7,
 ) -> Generator[str, None, None]:
     """
-    Sends conversation history to the selected LLM and streams back Ultron's response.
-    Auto-detects whether the key is Groq (gsk_...) or Gemini (AIza...).
+    Unified streaming generator supporting Google Gemini, Ollama (Local), and Groq.
     """
-    key = resolve_api_key(api_key)
-
-    if not key:
-        yield (
-            "### ⚡ Ultron Systems Standby\n\n"
-            "To activate Ultron, please provide an API Key via **Settings & API Key** in the sidebar.\n\n"
-            "* 🚀 **Groq Key (Free & Instant):** [console.groq.com/keys](https://console.groq.com/keys)\n"
-            "* 🌟 **Gemini Key (Google AI Studio):** [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)\n\n"
-            "*Tip: You can also add `GROQ_API_KEY = \"your-key\"` to Streamlit Cloud Secrets!*"
-        )
-        return
-
-    # Check if Groq key
-    if key.startswith("gsk_"):
-        if Groq is None:
-            yield "❌ `groq` library is missing. Please run `pip install groq`."
+    # ── 1. OLLAMA (Local & Free, No API Key Needed) ───────────────
+    if provider.lower() == "ollama":
+        if ollama is None:
+            yield "❌ `ollama` Python library is missing. Please install it with `pip install ollama`."
             return
+        try:
+            formatted_messages = [{"role": "system", "content": system_prompt}]
+            for msg in messages:
+                formatted_messages.append({"role": msg["role"], "content": msg["content"]})
+
+            response_stream = ollama.chat(
+                model=model_name or "llama3:latest",
+                messages=formatted_messages,
+                stream=True,
+                options={"temperature": temperature},
+            )
+            for chunk in response_stream:
+                if "message" in chunk and "content" in chunk["message"]:
+                    yield chunk["message"]["content"]
+            return
+        except Exception as e:
+            yield (
+                f"❌ **Ollama Connection Error**: {str(e)}\n\n"
+                "💡 *Make sure Ollama is installed and running on your computer (open Ollama app or run `ollama serve` in terminal), and you have pulled a model like `ollama run llama3`.*"
+            )
+            return
+
+    # ── 2. GOOGLE GEMINI ──────────────────────────────────────────
+    if provider.lower() == "gemini":
+        key = resolve_api_key(api_key, "Gemini")
+        if not key:
+            yield (
+                "### ⚡ Gemini API Key Required\n\n"
+                "To use Google Gemini, please enter your **Gemini API Key** in the Settings panel at the bottom of the sidebar.\n\n"
+                "👉 **Get Free Key (Google AI Studio):** [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) *(use personal @gmail.com)*\n\n"
+                "💡 *Or switch Provider to **Ollama** in Settings to run AI 100% locally without any API key!*"
+            )
+            return
+
+        if genai is None:
+            yield "❌ `google-genai` library is missing. Please run `pip install google-genai`."
+            return
+
+        try:
+            client = genai.Client(api_key=key)
+            contents = []
+            for msg in messages:
+                role = "user" if msg["role"] == "user" else "model"
+                contents.append(
+                    types.Content(
+                        role=role,
+                        parts=[types.Part.from_text(text=msg["content"])]
+                    )
+                )
+
+            config = types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                temperature=temperature,
+            )
+
+            # Map model name
+            target_model = model_name if model_name.startswith("gemini-") else "gemini-2.5-flash"
+
+            response = client.models.generate_content_stream(
+                model=target_model,
+                contents=contents,
+                config=config,
+            )
+
+            for chunk in response:
+                if chunk.text:
+                    yield chunk.text
+            return
+        except Exception as e:
+            yield f"❌ **Gemini LLM Error**: {str(e)}"
+            return
+
+    # ── 3. GROQ ───────────────────────────────────────────────────
+    if provider.lower() == "groq":
+        key = resolve_api_key(api_key, "Groq")
+        if not key:
+            yield (
+                "### ⚡ Groq API Key Required\n\n"
+                "Please enter your **Groq API Key** in the sidebar settings, or switch to **Ollama** / **Gemini**."
+            )
+            return
+
+        if Groq is None:
+            yield "❌ `groq` library is missing. Run `pip install groq`."
+            return
+
         try:
             client = Groq(api_key=key)
             formatted_messages = [{"role": "system", "content": system_prompt}]
             for msg in messages:
                 formatted_messages.append({"role": msg["role"], "content": msg["content"]})
 
+            target_model = model_name if not model_name.startswith("gemini-") else "llama-3.3-70b-versatile"
             stream = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
+                model=target_model,
                 messages=formatted_messages,
                 stream=True,
-                temperature=0.7,
+                temperature=temperature,
             )
             for chunk in stream:
                 content = chunk.choices[0].delta.content
@@ -148,40 +252,5 @@ def generate_llm_response(
                     yield content
             return
         except Exception as e:
-            yield f"❌ **Ultron Core Error (Groq)**: {str(e)}"
+            yield f"❌ **Groq LLM Error**: {str(e)}"
             return
-
-    # Otherwise treat as Gemini key
-    if genai is None:
-        yield "❌ `google-genai` library is missing. Please run `pip install google-genai`."
-        return
-
-    try:
-        client = genai.Client(api_key=key)
-        contents = []
-        for msg in messages:
-            role = "user" if msg["role"] == "user" else "model"
-            contents.append(
-                types.Content(
-                    role=role,
-                    parts=[types.Part.from_text(text=msg["content"])]
-                )
-            )
-
-        config = types.GenerateContentConfig(
-            system_instruction=system_prompt,
-            temperature=0.7,
-        )
-
-        response = client.models.generate_content_stream(
-            model="gemini-2.5-flash",
-            contents=contents,
-            config=config,
-        )
-
-        for chunk in response:
-            if chunk.text:
-                yield chunk.text
-
-    except Exception as e:
-        yield f"❌ **Ultron Core Error (Gemini)**: {str(e)}"
