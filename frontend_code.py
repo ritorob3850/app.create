@@ -1,10 +1,11 @@
 """
-Frontend Module — Ultron Conversational AI UI (v2.5)
+Frontend Module — Ultron Conversational AI UI (v2.6)
 =====================================================
 Features:
 - Identity Login Gateway (Name Input)
 - Claude-style Dynamic Greetings (Time-based + Random prompt)
-- Multi-Theme Engine (Obsidian Dark, Clean Light, Cyberpunk Neon)
+- Robust Dark & Light Themes (Crystal-clear contrast, no visual glitches)
+- Zero clutter (No suggestion boxes at start)
 - Multi-LLM Provider Engine (Google Gemini, Local Ollama, Groq)
 - Comprehensive Settings Panel (Theme, Provider, Model, Temperature, Prompt, API Key)
 """
@@ -36,7 +37,7 @@ if "session_greeting" not in st.session_state:
     st.session_state.session_greeting = ""
 
 if "app_theme" not in st.session_state:
-    st.session_state.app_theme = "🌑 Obsidian Dark"
+    st.session_state.app_theme = "🌑 Dark Mode"
 
 if "provider" not in st.session_state:
     st.session_state.provider = "Google Gemini"
@@ -48,64 +49,101 @@ if "temperature" not in st.session_state:
     st.session_state.temperature = 0.7
 
 
-# ── Dynamic Theme CSS ─────────────────────────────────────────
-THEMES = {
-    "🌑 Obsidian Dark": """
-        --bg-main: #0c0e12;
-        --sidebar-bg: linear-gradient(180deg, #0d0f14 0%, #12151d 100%);
-        --text-color: #f0f2f6;
-        --subtext-color: #8c93a4;
-        --card-bg: rgba(255, 255, 255, 0.025);
-        --card-border: rgba(255, 255, 255, 0.06);
-        --accent-glow: #ff3344;
-        --accent-glow-rgba: rgba(255, 51, 68, 0.4);
-        --input-bg: rgba(18, 22, 31, 0.9);
-        --input-border: rgba(255, 255, 255, 0.12);
-        --chip-bg: rgba(255, 255, 255, 0.03);
-    """,
-    "☀️ Clean Light": """
-        --bg-main: #f8f9fc;
-        --sidebar-bg: linear-gradient(180deg, #f1f3f8 0%, #e9edf5 100%);
-        --text-color: #1a1d24;
-        --subtext-color: #5d6474;
-        --card-bg: #ffffff;
-        --card-border: rgba(0, 0, 0, 0.08);
-        --accent-glow: #e63946;
-        --accent-glow-rgba: rgba(230, 57, 70, 0.3);
-        --input-bg: #ffffff;
-        --input-border: rgba(0, 0, 0, 0.15);
-        --chip-bg: #ffffff;
-    """,
-    "🌌 Cyberpunk Neon": """
-        --bg-main: #06070a;
-        --sidebar-bg: linear-gradient(180deg, #0a0c14 0%, #0d111c 100%);
-        --text-color: #00f2fe;
-        --subtext-color: #7b88a8;
-        --card-bg: rgba(0, 242, 254, 0.03);
-        --card-border: rgba(0, 242, 254, 0.15);
-        --accent-glow: #00f2fe;
-        --accent-glow-rgba: rgba(0, 242, 254, 0.5);
-        --input-bg: rgba(10, 15, 26, 0.95);
-        --input-border: rgba(0, 242, 254, 0.25);
-        --chip-bg: rgba(0, 242, 254, 0.05);
-    """,
-}
+# ── Curated Clean Theme Definitions ───────────────────────────
+is_dark = "Dark" in st.session_state.app_theme
 
-current_theme_vars = THEMES.get(st.session_state.app_theme, THEMES["🌑 Obsidian Dark"])
+if is_dark:
+    theme_css = """
+    :root {
+        --bg-main: #0b0d12;
+        --sidebar-bg: #10131b;
+        --text-primary: #f1f5f9;
+        --text-secondary: #94a3b8;
+        --card-bg: rgba(255, 255, 255, 0.03);
+        --card-border: rgba(255, 255, 255, 0.08);
+        --accent: #ff3344;
+        --accent-glow: rgba(255, 51, 68, 0.4);
+        --input-bg: #131722;
+        --input-border: rgba(255, 255, 255, 0.14);
+    }
+    html, body, [class*="css"], .stApp {
+        background-color: #0b0d12 !important;
+        color: #f1f5f9 !important;
+    }
+    [data-testid="stSidebar"] {
+        background-color: #10131b !important;
+        border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+    }
+    [data-testid="stChatMessage"] {
+        background: rgba(255, 255, 255, 0.03) !important;
+        border: 1px solid rgba(255, 255, 255, 0.07) !important;
+        color: #f1f5f9 !important;
+    }
+    .user-pill {
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        color: #f1f5f9;
+    }
+    """
+else:
+    # Crystal-clear, modern light theme
+    theme_css = """
+    :root {
+        --bg-main: #f8fafc;
+        --sidebar-bg: #ffffff;
+        --text-primary: #0f172a;
+        --text-secondary: #475569;
+        --card-bg: #ffffff;
+        --card-border: #e2e8f0;
+        --accent: #dc2626;
+        --accent-glow: rgba(220, 38, 38, 0.25);
+        --input-bg: #ffffff;
+        --input-border: #cbd5e1;
+    }
+    html, body, [class*="css"], .stApp {
+        background-color: #f8fafc !important;
+        color: #0f172a !important;
+    }
+    p, span, div, h1, h2, h3, h4, label, .stMarkdown {
+        color: #0f172a !important;
+    }
+    [data-testid="stSidebar"] {
+        background-color: #ffffff !important;
+        border-right: 1px solid #e2e8f0 !important;
+    }
+    [data-testid="stSidebar"] p, [data-testid="stSidebar"] span, [data-testid="stSidebar"] label {
+        color: #0f172a !important;
+    }
+    [data-testid="stChatMessage"] {
+        background: #ffffff !important;
+        border: 1px solid #e2e8f0 !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04) !important;
+        color: #0f172a !important;
+    }
+    [data-testid="stChatMessage"] p {
+        color: #0f172a !important;
+    }
+    .user-pill {
+        background: #f1f5f9;
+        border: 1px solid #e2e8f0;
+        color: #0f172a;
+    }
+    .login-box {
+        background: #ffffff !important;
+        border: 1px solid #e2e8f0 !important;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08) !important;
+    }
+    """
 
 st.markdown(
     f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
-    :root {{
-        {current_theme_vars}
-    }}
+    {theme_css}
 
     html, body, [class*="css"], .stApp {{
         font-family: 'Outfit', sans-serif !important;
-        background-color: var(--bg-main) !important;
-        color: var(--text-color) !important;
     }}
     
     code, pre {{
@@ -113,17 +151,12 @@ st.markdown(
     }}
 
     .block-container {{
-        padding-top: 1.8rem;
+        padding-top: 2rem;
         padding-bottom: 5.5rem;
-        max-width: 900px;
-    }}
-
-    /* Sidebar */
-    [data-testid="stSidebar"] {{
-        background: var(--sidebar-bg) !important;
-        border-right: 1px solid var(--card-border) !important;
+        max-width: 860px;
     }}
     
+    /* Brand Header in Sidebar */
     .sidebar-brand {{
         display: flex;
         align-items: center;
@@ -135,8 +168,8 @@ st.markdown(
 
     .brand-icon {{
         font-size: 1.7rem;
-        color: var(--accent-glow);
-        filter: drop-shadow(0 0 10px var(--accent-glow-rgba));
+        color: var(--accent);
+        filter: drop-shadow(0 0 10px var(--accent-glow));
         animation: subtlePulse 3s ease-in-out infinite alternate;
     }}
 
@@ -144,7 +177,7 @@ st.markdown(
         font-size: 1.45rem;
         font-weight: 700;
         letter-spacing: 2.5px;
-        color: var(--text-color);
+        color: var(--text-primary);
         text-transform: uppercase;
     }}
 
@@ -152,11 +185,11 @@ st.markdown(
         font-size: 0.65rem;
         font-weight: 600;
         letter-spacing: 1px;
-        background: rgba(255, 51, 68, 0.15);
-        color: var(--accent-glow);
+        background: rgba(255, 51, 68, 0.12);
+        color: var(--accent);
         padding: 3px 8px;
         border-radius: 20px;
-        border: 1px solid var(--accent-glow-rgba);
+        border: 1px solid var(--accent-glow);
         margin-left: auto;
     }}
 
@@ -164,24 +197,21 @@ st.markdown(
         display: flex;
         align-items: center;
         gap: 8px;
-        background: var(--card-bg);
-        border: 1px solid var(--card-border);
         padding: 8px 12px;
         border-radius: 12px;
         font-size: 0.88rem;
-        color: var(--text-color);
         margin-bottom: 14px;
     }}
 
     /* Animations */
     @keyframes fadeInUp {{
-        from {{ opacity: 0; transform: translateY(12px); }}
+        from {{ opacity: 0; transform: translateY(10px); }}
         to {{ opacity: 1; transform: translateY(0); }}
     }}
 
     @keyframes subtlePulse {{
-        0% {{ transform: scale(1); filter: drop-shadow(0 0 4px var(--accent-glow-rgba)); }}
-        100% {{ transform: scale(1.08); filter: drop-shadow(0 0 14px var(--accent-glow)); }}
+        0% {{ transform: scale(1); }}
+        100% {{ transform: scale(1.08); filter: drop-shadow(0 0 12px var(--accent)); }}
     }}
 
     /* Login Gateway Card */
@@ -189,31 +219,24 @@ st.markdown(
         display: flex;
         justify-content: center;
         align-items: center;
-        padding-top: 5vh;
-        animation: fadeInUp 0.5s ease forwards;
+        padding-top: 6vh;
+        animation: fadeInUp 0.4s ease forwards;
     }}
 
     .login-box {{
-        background: var(--input-bg);
-        backdrop-filter: blur(16px);
-        border: 1px solid var(--card-border);
         border-radius: 24px;
-        padding: 36px 32px;
+        padding: 38px 32px;
         max-width: 480px;
         width: 100%;
         text-align: center;
-        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4), 0 0 30px var(--accent-glow-rgba);
     }}
 
     /* Chat Messages */
     [data-testid="stChatMessage"] {{
-        background: var(--card-bg) !important;
-        border: 1px solid var(--card-border) !important;
         border-radius: 18px;
         padding: 16px 20px;
         margin-bottom: 14px;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-        animation: fadeInUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        animation: fadeInUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         transition: all 0.2s ease;
     }}
 
@@ -221,15 +244,14 @@ st.markdown(
     [data-testid="stChatInput"] {{
         border-radius: 26px !important;
         background: var(--input-bg) !important;
-        backdrop-filter: blur(14px) !important;
         border: 1px solid var(--input-border) !important;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25) !important;
-        transition: all 0.25s ease !important;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) !important;
+        transition: all 0.2s ease !important;
     }}
 
     [data-testid="stChatInput"]:focus-within {{
-        border-color: var(--accent-glow) !important;
-        box-shadow: 0 0 20px var(--accent-glow-rgba) !important;
+        border-color: var(--accent) !important;
+        box-shadow: 0 0 16px var(--accent-glow) !important;
     }}
 
     /* Buttons */
@@ -237,48 +259,32 @@ st.markdown(
         border-radius: 14px !important;
         font-weight: 500 !important;
         transition: all 0.2s ease !important;
-        border: 1px solid var(--card-border) !important;
     }}
 
     .stButton > button:hover {{
         transform: translateY(-1px);
-        border-color: var(--accent-glow) !important;
-        box-shadow: 0 4px 14px var(--accent-glow-rgba) !important;
+        border-color: var(--accent) !important;
     }}
 
-    /* Hero Banner */
+    /* Hero Banner (Clean Claude Style) */
     .hero-container {{
         text-align: center;
-        padding: 30px 10px 24px 10px;
+        padding: 60px 10px 30px 10px;
         animation: fadeInUp 0.4s ease forwards;
     }}
 
     .hero-title {{
-        font-size: 2.3rem;
+        font-size: 2.2rem;
         font-weight: 700;
-        letter-spacing: 0.5px;
-        color: var(--text-color);
+        letter-spacing: -0.5px;
+        color: var(--text-primary);
         margin-bottom: 8px;
     }}
 
     .hero-subtitle {{
-        color: var(--subtext-color);
-        font-size: 1.05rem;
+        color: var(--text-secondary);
+        font-size: 1rem;
         font-weight: 400;
-        margin-bottom: 24px;
-    }}
-
-    .prompt-chip {{
-        display: inline-block;
-        padding: 10px 16px;
-        margin: 6px;
-        background: var(--chip-bg);
-        border: 1px solid var(--card-border);
-        border-radius: 16px;
-        font-size: 0.88rem;
-        color: var(--text-color);
-        transition: all 0.2s ease;
-        text-align: left;
     }}
     </style>
     """,
@@ -296,7 +302,7 @@ if not st.session_state.user_name:
             <div class="login-box">
                 <div style="font-size: 3rem; margin-bottom: 8px;">🤖</div>
                 <h2 style="font-weight: 700; letter-spacing: 2px; margin-bottom: 6px; text-transform: uppercase;">ULTRON</h2>
-                <p style="color: var(--subtext-color); font-size: 0.95rem; margin-bottom: 24px;">Please identify yourself to enter the workspace.</p>
+                <p style="color: var(--text-secondary); font-size: 0.95rem; margin-bottom: 24px;">Please identify yourself to enter the workspace.</p>
             </div>
         </div>
         """,
@@ -327,7 +333,7 @@ if not st.session_state.user_name:
 if not st.session_state.session_greeting:
     st.session_state.session_greeting = get_dynamic_greeting(st.session_state.user_name)
 
-# ── Sidebar ───────────────────────────────────────────────────
+# ── Sidebar Architecture ───────────────────────────────────────
 with st.sidebar:
     # 1. Bold Top Brand
     st.markdown(
@@ -335,7 +341,7 @@ with st.sidebar:
         <div class="sidebar-brand">
             <span class="brand-icon">🤖</span>
             <span class="brand-name">ULTRON</span>
-            <span class="brand-badge">v2.5</span>
+            <span class="brand-badge">v2.6</span>
         </div>
         """,
         unsafe_allow_html=True,
@@ -365,16 +371,16 @@ with st.sidebar:
             st.session_state.messages = []
             st.rerun()
 
-    st.markdown("<div style='height: 10vh;'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='height: 12vh;'></div>", unsafe_allow_html=True)
     st.divider()
 
-    # 2. Rich Settings Panel at the Bottom
+    # 2. Settings Panel Anchored at the Bottom
     with st.expander("⚙️ Settings & Configuration", expanded=False):
-        # Theme Selector
+        # Clean Theme Selector (Dark vs Light)
         selected_theme = st.selectbox(
             "🎨 Interface Theme",
-            options=["🌑 Obsidian Dark", "☀️ Clean Light", "🌌 Cyberpunk Neon"],
-            index=["🌑 Obsidian Dark", "☀️ Clean Light", "🌌 Cyberpunk Neon"].index(st.session_state.app_theme),
+            options=["🌑 Dark Mode", "☀️ Light Mode"],
+            index=0 if "Dark" in st.session_state.app_theme else 1,
         )
         if selected_theme != st.session_state.app_theme:
             st.session_state.app_theme = selected_theme
@@ -400,13 +406,12 @@ with st.sidebar:
                 "🔑 Gemini API Key",
                 type="password",
                 placeholder="Paste Gemini API key (AIza...)",
-                help="Get a free key from Google AI Studio using a personal @gmail.com account.",
+                help="Get a free key from Google AI Studio using personal @gmail.com",
             )
             st.markdown(
                 """
                 <div style="font-size: 0.8rem; color: #8c93a4; margin-top: 4px;">
                     🌟 <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color: #ff4d5a; text-decoration: none;">Get Free Gemini Key (AI Studio)</a>
-                    <br><span style="color: #6c7384;">*Use personal Gmail account if student account shows permission denied.*</span>
                 </div>
                 """,
                 unsafe_allow_html=True,
@@ -416,8 +421,8 @@ with st.sidebar:
             ollama_models = get_available_ollama_models()
             st.session_state.model_name = st.selectbox("📦 Local Ollama Model", ollama_models)
             api_key_input = ""
-            st.success("⚡ 100% Free & Local — Zero API key required!")
-            st.caption("Ensure Ollama is running (`ollama serve` or Ollama desktop app).")
+            st.success("⚡ 100% Free & Local — No API key needed!")
+            st.caption("Ensure Ollama is running (`ollama serve`).")
 
         else:  # Groq
             groq_models = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768"]
@@ -459,39 +464,19 @@ with st.sidebar:
             st.rerun()
 
 
-# ── Welcome Hero Banner with Claude Dynamic Greeting ───────────
+# ── Clean Hero Banner (Zero Suggestion clutter) ───────────────
 if len(st.session_state.messages) == 0:
     provider_label = "Gemini" if "Gemini" in st.session_state.provider else ("Ollama" if "Ollama" in st.session_state.provider else "Groq")
     st.markdown(
         f"""
         <div class="hero-container">
-            <div style="font-size: 2.6rem; margin-bottom: 6px;">🤖</div>
+            <div style="font-size: 3rem; margin-bottom: 8px;">🤖</div>
             <div class="hero-title">{st.session_state.session_greeting}</div>
-            <div class="hero-subtitle">Ultron is active ({provider_label} • {st.session_state.model_name}) and ready to assist with code, reasoning, research, and analysis.</div>
+            <div class="hero-subtitle">Ultron is ready • Powered by {provider_label} ({st.session_state.model_name})</div>
         </div>
         """,
         unsafe_allow_html=True,
     )
-
-    col1, col2 = st.columns(2)
-    with col1:
-        st.markdown(
-            """
-            <div class="prompt-chip">💡 <strong>Architecture:</strong> Build a Python REST API</div>
-            <div class="prompt-chip">🔬 <strong>Deep Reasoning:</strong> Explain quantum entanglement</div>
-            """,
-            unsafe_allow_html=True,
-        )
-    with col2:
-        st.markdown(
-            """
-            <div class="prompt-chip">⚡ <strong>Code Optimization:</strong> Refactor script for speed</div>
-            <div class="prompt-chip">📝 <strong>Creative Brief:</strong> Draft a project proposal for AI</div>
-            """,
-            unsafe_allow_html=True,
-        )
-    st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
-
 
 # ── Render Chat History ───────────────────────────────────────
 for message in st.session_state.messages:
