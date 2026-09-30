@@ -118,17 +118,16 @@ def resolve_api_key(passed_key: str = None, provider: str = "Gemini") -> str:
 def get_available_ollama_models() -> List[str]:
     """Fetches list of installed local Ollama models."""
     if ollama is None:
-        return ["llama3:latest", "mistral", "deepseek-r1", "phi3"]
+        return ["llama3:latest", "gemma3:1b", "qwen2.5:0.5b"]
     try:
         models_info = ollama.list()
-        # Handle dict or object response from ollama.list()
         if isinstance(models_info, dict) and "models" in models_info:
             return [m.get("name") or m.get("model") for m in models_info["models"]]
         elif hasattr(models_info, "models"):
-            return [m.model or m.name for m in models_info.models]
+            return [getattr(m, "model", None) or getattr(m, "name", "llama3:latest") for m in models_info.models]
     except Exception:
         pass
-    return ["llama3:latest", "mistral", "deepseek-r1", "phi3"]
+    return ["llama3:latest", "gemma3:1b", "qwen2.5:0.5b"]
 
 
 def generate_llm_response(
@@ -142,10 +141,10 @@ def generate_llm_response(
     """
     Unified streaming generator supporting Google Gemini, Ollama (Local), and Groq.
     """
-    # ── 1. OLLAMA (Local & Free, No API Key Needed) ───────────────
+    # ── 1. OLLAMA (Local & Free) ───────────────────────────────────
     if provider.lower() == "ollama":
         if ollama is None:
-            yield "❌ `ollama` Python library is missing. Please install it with `pip install ollama`."
+            yield "❌ `ollama` Python library is missing. Run `pip install ollama`."
             return
         try:
             formatted_messages = [{"role": "system", "content": system_prompt}]
@@ -159,13 +158,19 @@ def generate_llm_response(
                 options={"temperature": temperature},
             )
             for chunk in response_stream:
-                if "message" in chunk and "content" in chunk["message"]:
-                    yield chunk["message"]["content"]
+                content = None
+                if hasattr(chunk, "message") and hasattr(chunk.message, "content"):
+                    content = chunk.message.content
+                elif isinstance(chunk, dict) and "message" in chunk:
+                    content = chunk["message"].get("content", "")
+                
+                if content:
+                    yield content
             return
         except Exception as e:
             yield (
-                f"❌ **Ollama Connection Error**: {str(e)}\n\n"
-                "💡 *Make sure Ollama is installed and running on your computer (open Ollama app or run `ollama serve` in terminal), and you have pulled a model like `ollama run llama3`.*"
+                f"❌ **Ollama Error**: {str(e)}\n\n"
+                "💡 *Make sure you are running the app locally on your PC (Ollama cannot be reached from the public Streamlit Cloud link).*"
             )
             return
 
@@ -175,14 +180,17 @@ def generate_llm_response(
         if not key:
             yield (
                 "### ⚡ Gemini API Key Required\n\n"
-                "To use Google Gemini, please enter your **Gemini API Key** in the Settings panel at the bottom of the sidebar.\n\n"
-                "👉 **Get Free Key (Google AI Studio):** [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) *(use personal @gmail.com)*\n\n"
-                "💡 *Or switch Provider to **Ollama** in Settings to run AI 100% locally without any API key!*"
+                "To use Google Gemini, please paste your **Gemini API Key** in the sidebar settings.\n\n"
+                "👉 **Get a Free Key in 10 seconds:**\n"
+                "1. Open a Chrome **Incognito Window** (`Ctrl+Shift+N`)\n"
+                "2. Go to: **[aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)**\n"
+                "3. Sign in with your **personal `@gmail.com` account** (NOT a school/work email)\n"
+                "4. Click **Create API Key** and paste it here!"
             )
             return
 
         if genai is None:
-            yield "❌ `google-genai` library is missing. Please run `pip install google-genai`."
+            yield "❌ `google-genai` library is missing. Run `pip install google-genai`."
             return
 
         try:
@@ -202,7 +210,6 @@ def generate_llm_response(
                 temperature=temperature,
             )
 
-            # Map model name
             target_model = model_name if model_name.startswith("gemini-") else "gemini-2.5-flash"
 
             response = client.models.generate_content_stream(
@@ -225,7 +232,7 @@ def generate_llm_response(
         if not key:
             yield (
                 "### ⚡ Groq API Key Required\n\n"
-                "Please enter your **Groq API Key** in the sidebar settings, or switch to **Ollama** / **Gemini**."
+                "Please paste your **Groq API Key** in the sidebar settings, or switch provider to **Ollama** / **Gemini**."
             )
             return
 
