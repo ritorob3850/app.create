@@ -1,17 +1,25 @@
 """
-Backend Module — LLM Core Engine
-================================
-Connects to Google Gemini LLM to power a full conversational AI assistant
-similar to ChatGPT and Claude.
+Backend Module — Multi-LLM Engine (Gemini & Groq)
+==================================================
+Powers conversational AI like ChatGPT and Claude using either:
+- Google Gemini (gemini-2.5-flash)
+- Groq (llama-3.3-70b-versatile / llama-3.1-8b-instant)
 """
 
 import os
 from typing import List, Dict, Generator
+
+# Try importing SDKs
 try:
     from google import genai
     from google.genai import types
 except ImportError:
     genai = None
+
+try:
+    from groq import Groq
+except ImportError:
+    Groq = None
 
 
 def generate_llm_response(
@@ -20,34 +28,53 @@ def generate_llm_response(
     system_prompt: str = "You are a helpful, intelligent, and friendly AI assistant like ChatGPT or Claude."
 ) -> Generator[str, None, None]:
     """
-    Sends chat history to Gemini LLM and streams back the assistant response.
-
-    Args:
-        messages: List of message dictionaries with 'role' ('user' or 'assistant') and 'content'.
-        api_key: Google Gemini API key. If omitted, checks GEMINI_API_KEY environment variable.
-        system_prompt: System instruction directing the AI's personality.
-
-    Yields:
-        Chunks of text response as they stream from the LLM.
+    Sends chat history to the selected LLM and streams back the assistant response.
+    Auto-detects whether the key is Gemini (AIza...) or Groq (gsk_...).
     """
-    effective_api_key = api_key or os.environ.get("GEMINI_API_KEY", "").strip()
+    key = (api_key or os.environ.get("LLM_API_KEY") or os.environ.get("GEMINI_API_KEY") or os.environ.get("GROQ_API_KEY") or "").strip()
 
-    if not effective_api_key:
+    if not key:
         yield (
-            "⚠️ **Gemini API Key Required**\n\n"
-            "To activate the AI chatbot, please enter your free **Gemini API Key** in the sidebar on the left.\n\n"
-            "👉 You can get a free key in 10 seconds at: [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)"
+            "⚠️ **API Key Required**\n\n"
+            "Please paste your free API key in the sidebar:\n\n"
+            "- ⚡ **Groq Key (Instant & Free):** [console.groq.com/keys](https://console.groq.com/keys)\n"
+            "- 🌟 **Gemini Key (Free):** [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) *(use personal Gmail)*"
         )
         return
 
+    # Check if Groq key
+    if key.startswith("gsk_"):
+        if Groq is None:
+            yield "❌ `groq` library not installed. Please run `pip install groq`."
+            return
+        try:
+            client = Groq(api_key=key)
+            formatted_messages = [{"role": "system", "content": system_prompt}]
+            for msg in messages:
+                formatted_messages.append({"role": msg["role"], "content": msg["content"]})
+
+            stream = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=formatted_messages,
+                stream=True,
+                temperature=0.7,
+            )
+            for chunk in stream:
+                content = chunk.choices[0].delta.content
+                if content:
+                    yield content
+            return
+        except Exception as e:
+            yield f"❌ **Groq LLM Error**: {str(e)}"
+            return
+
+    # Otherwise treat as Gemini key
     if genai is None:
-        yield "❌ Error: `google-genai` library is not installed. Please run `pip install google-genai`."
+        yield "❌ `google-genai` library not installed. Please run `pip install google-genai`."
         return
 
     try:
-        client = genai.Client(api_key=effective_api_key)
-
-        # Convert messages into contents format for Gemini
+        client = genai.Client(api_key=key)
         contents = []
         for msg in messages:
             role = "user" if msg["role"] == "user" else "model"
@@ -74,4 +101,4 @@ def generate_llm_response(
                 yield chunk.text
 
     except Exception as e:
-        yield f"❌ **LLM Error**: {str(e)}"
+        yield f"❌ **Gemini Error**: {str(e)}"

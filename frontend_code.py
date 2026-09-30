@@ -40,20 +40,21 @@ st.markdown(
 
 # ── Sidebar Controls ──────────────────────────────────────────
 with st.sidebar:
-    st.title("⚙️ Settings")
-    st.caption("Powered by Gemini LLM Backend")
+    st.title("⚙️ LLM Settings")
+    st.caption("ChatGPT / Claude style AI Chatbot")
 
     api_key_input = st.text_input(
-        "🔑 Gemini API Key",
+        "🔑 LLM API Key (Groq or Gemini)",
         type="password",
-        placeholder="Enter your API key...",
-        help="Get a free API key at https://aistudio.google.com/app/apikey",
+        placeholder="Paste Groq or Gemini API key...",
+        help="Paste a free key from Groq or Google AI Studio.",
     )
 
     st.markdown(
         """
-        Need a free API key?  
-        👉 [Get Gemini API Key (Free)](https://aistudio.google.com/app/apikey)
+        **Get a Free API Key:**
+        - ⚡ [Get Groq Key (Instant & Free)](https://console.groq.com/keys)
+        - 🌟 [Get Gemini Key (Google AI Studio)](https://aistudio.google.com/app/apikey) *(use personal @gmail.com)*
         """
     )
 
