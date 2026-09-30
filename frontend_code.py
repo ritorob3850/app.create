@@ -44,7 +44,7 @@ if "provider" not in st.session_state:
     st.session_state.provider = "Google Gemini"
 
 if "model_name" not in st.session_state:
-    st.session_state.model_name = "gemini-3.8-flash"
+    st.session_state.model_name = "gemini-2.0-flash"
 
 if "temperature" not in st.session_state:
     st.session_state.temperature = 0.7
@@ -405,7 +405,7 @@ with st.sidebar:
 
         # Model Selection based on Provider
         if "Gemini" in selected_provider:
-            model_options = ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-1.5-flash", "gemini-1.5-pro"]
+            model_options = ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash", "gemini-1.5-pro"]
             st.session_state.model_name = st.selectbox("📦 Gemini Model", model_options)
             
             gem_input = st.text_input(

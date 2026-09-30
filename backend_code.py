@@ -2,7 +2,7 @@
 Backend Module — Ultron Multi-Provider LLM Engine
 =================================================
 Powers conversational AI 'Ultron' with:
-- Google Gemini with Dynamic Live Model Discovery & Auto-Failover
+- Google Gemini with Filtered Chat Models & Auto-Failover
 - Ollama (Local offline AI: llama3, mistral, deepseek-r1, phi3, gemma2, etc.)
 - Groq (llama-3.3-70b-versatile, etc.)
 - Dynamic time-based Claude-style greetings
@@ -151,7 +151,7 @@ def generate_llm_response(
 ) -> Generator[str, None, None]:
     """
     Unified streaming generator supporting Google Gemini, Ollama (Local), and Groq.
-    Includes automated live model discovery & failover.
+    Filters exclusively for multi-turn chat compatible models.
     """
     # ── 1. OLLAMA (Local & Free) ───────────────────────────────────
     if provider.lower() == "ollama":
@@ -186,7 +186,7 @@ def generate_llm_response(
             )
             return
 
-    # ── 2. GOOGLE GEMINI (With Dynamic Discovery & Failover) ────────
+    # ── 2. GOOGLE GEMINI (With Verified Chat Model Queue) ──────────
     if provider.lower() == "gemini":
         key = resolve_api_key(api_key, "Gemini")
         if not key:
@@ -220,25 +220,22 @@ def generate_llm_response(
                 temperature=temperature,
             )
 
-            # 1. Query live available models from Google API
-            live_active_models = []
-            try:
-                for m in client.models.list():
-                    m_name = getattr(m, "name", "")
-                    if "gemini" in m_name:
-                        clean_name = m_name.replace("models/", "")
-                        if "flash" in clean_name or "pro" in clean_name:
-                            live_active_models.append(clean_name)
-            except Exception:
-                pass
+            # Strict exclusion of non-conversational models (TTS, Audio, Embedding, Imagen)
+            disallowed = ["tts", "audio", "embed", "imagen", "voice", "realtime", "custom"]
 
-            # 2. Build prioritized candidate list
-            candidates = [model_name] + live_active_models + [
+            # Prioritized verified chat models
+            verified_chat_models = [
                 "gemini-2.0-flash",
                 "gemini-2.0-flash-lite",
-                "gemini-2.5-flash",
                 "gemini-1.5-flash",
+                "gemini-1.5-flash-latest",
+                "gemini-1.5-pro",
+                "gemini-2.5-flash",
             ]
+
+            preferred = [model_name] if model_name and not any(d in model_name.lower() for d in disallowed) else []
+            candidates = preferred + verified_chat_models
+            
             seen = set()
             models_to_try = [m for m in candidates if m and not (m in seen or seen.add(m))]
 
@@ -259,15 +256,11 @@ def generate_llm_response(
                         return
                 except Exception as stream_err:
                     err_str = str(stream_err)
-                    # If 503, 404, or unavailable, try next candidate
-                    if any(code in err_str for code in ["503", "UNAVAILABLE", "404", "NOT_FOUND"]):
-                        last_error = err_str
-                        continue
-                    else:
-                        raise stream_err
+                    last_error = err_str
+                    continue
 
             if last_error:
-                yield f"⚠️ **Notice**: {last_error}\n\n*Please try sending your message again.*"
+                yield f"⚠️ **Gemini Notice**: {last_error}"
 
         except Exception as e:
             yield f"❌ **Gemini Error**: {str(e)}"
