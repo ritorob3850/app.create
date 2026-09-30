@@ -382,7 +382,7 @@ if len(st.session_state.messages) == 0:
 
 # ── Render Chat History ───────────────────────────────────────
 for message in st.session_state.messages:
-    avatar = "👤" if message["role"] == "user" else "⬡"
+    avatar = "👤" if message["role"] == "user" else "🤖"
     with st.chat_message(message["role"], avatar=avatar):
         st.markdown(message["content"])
 
@@ -395,7 +395,7 @@ if user_prompt := st.chat_input("Message Ultron..."):
         st.markdown(user_prompt)
 
     # 2. Stream Ultron's response from backend
-    with st.chat_message("assistant", avatar="⬡"):
+    with st.chat_message("assistant", avatar="🤖"):
         response_generator = generate_llm_response(
             messages=st.session_state.messages,
             api_key=api_key_input,
