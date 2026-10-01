@@ -41,10 +41,10 @@ if "app_theme" not in st.session_state:
     st.session_state.app_theme = "🌑 Dark Mode"
 
 if "provider" not in st.session_state:
-    st.session_state.provider = "Google Gemini"
+    st.session_state.provider = "Groq"
 
 if "model_name" not in st.session_state:
-    st.session_state.model_name = "gemini-2.0-flash"
+    st.session_state.model_name = "openai/gpt-oss-20b"
 
 if "temperature" not in st.session_state:
     st.session_state.temperature = 0.7
@@ -395,11 +395,11 @@ with st.sidebar:
         st.divider()
 
         # Provider Selector
-        provider_options = ["Google Gemini", "Ollama (Local & Free)", "Groq"]
+        provider_options = ["Groq (Recommended & Active)", "Google Gemini", "Ollama (Local & Free)"]
         selected_provider = st.selectbox(
             "🧠 AI Engine Provider",
             options=provider_options,
-            index=0 if "Gemini" in st.session_state.provider else (1 if "Ollama" in st.session_state.provider else 2),
+            index=0 if "Groq" in st.session_state.provider else (1 if "Gemini" in st.session_state.provider else 2),
         )
         st.session_state.provider = selected_provider
 
