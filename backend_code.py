@@ -2,9 +2,9 @@
 Backend Module — Ultron Multi-Provider LLM Engine
 =================================================
 Powers conversational AI 'Ultron' with:
-- Google Gemini with Filtered Chat Models & Auto-Failover
-- Ollama (Local offline AI: llama3, mistral, deepseek-r1, phi3, gemma2, etc.)
-- Groq (llama-3.3-70b-versatile, etc.)
+- Google Gemini (gemini-3.8-flash) with Auto-Fallback
+- Groq (openai/gpt-oss-20b, qwen/qwen3.8-27b, openai/gpt-oss-120b)
+- Ollama (Local offline AI: llama3:latest, gemma3:1b, qwen2.5:0.5b)
 - Dynamic time-based Claude-style greetings
 - Temperature, custom personas, and streaming support
 """
@@ -144,14 +144,13 @@ def get_available_ollama_models() -> List[str]:
 def generate_llm_response(
     messages: List[Dict[str, str]],
     provider: str = "Gemini",
-    model_name: str = "gemini-2.0-flash",
+    model_name: str = "gemini-3.8-flash",
     api_key: str = None,
     system_prompt: str = ULTRON_DEFAULT_PROMPT,
     temperature: float = 0.7,
 ) -> Generator[str, None, None]:
     """
     Unified streaming generator supporting Google Gemini, Ollama (Local), and Groq.
-    Filters exclusively for multi-turn chat compatible models.
     """
     # ── 1. OLLAMA (Local & Free) ───────────────────────────────────
     if provider.lower() == "ollama":
@@ -186,15 +185,13 @@ def generate_llm_response(
             )
             return
 
-    # ── 2. GOOGLE GEMINI (With Verified Chat Model Queue) ──────────
+    # ── 2. GOOGLE GEMINI ──────────────────────────────────────────
     if provider.lower() == "gemini":
         key = resolve_api_key(api_key, "Gemini")
         if not key:
             yield (
                 "### ⚡ Gemini API Key Required\n\n"
-                "Please enter your **Gemini API Key** in the sidebar settings:\n\n"
-                "1. Open **⚙️ Settings & Configuration** in the left sidebar.\n"
-                "2. Paste your `AIzaSy...` key into the **🔑 Gemini API Key** box.\n\n"
+                "Please paste your **Gemini API Key** into the sidebar settings.\n\n"
                 "👉 **Get a free key:** [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)"
             )
             return
@@ -220,30 +217,18 @@ def generate_llm_response(
                 temperature=temperature,
             )
 
-            # Strict exclusion of non-conversational models (TTS, Audio, Embedding, Imagen)
-            disallowed = ["tts", "audio", "embed", "imagen", "voice", "realtime", "custom"]
-
-            # Prioritized verified chat models
-            verified_chat_models = [
-                "gemini-2.0-flash",
-                "gemini-2.0-flash-lite",
-                "gemini-1.5-flash",
-                "gemini-1.5-flash-latest",
-                "gemini-1.5-pro",
-                "gemini-2.5-flash",
-            ]
-
-            preferred = [model_name] if model_name and not any(d in model_name.lower() for d in disallowed) else []
-            candidates = preferred + verified_chat_models
+            # Gemini-3.8-flash is the mandatory model for Google GenAI v1beta
+            target_model = model_name if (model_name and "3.8" in model_name) else "gemini-3.8-flash"
+            candidates = [target_model, "gemini-3.8-flash", "gemini-2.5-flash", "gemini-2.0-flash"]
             
             seen = set()
             models_to_try = [m for m in candidates if m and not (m in seen or seen.add(m))]
 
             last_error = None
-            for candidate_model in models_to_try:
+            for candidate in models_to_try:
                 try:
                     response = client.models.generate_content_stream(
-                        model=candidate_model,
+                        model=candidate,
                         contents=contents,
                         config=config,
                     )
@@ -255,18 +240,17 @@ def generate_llm_response(
                     if has_output:
                         return
                 except Exception as stream_err:
-                    err_str = str(stream_err)
-                    last_error = err_str
+                    last_error = str(stream_err)
                     continue
 
             if last_error:
-                yield f"⚠️ **Gemini Notice**: {last_error}"
+                yield f"⚠️ **Notice**: {last_error}"
 
         except Exception as e:
             yield f"❌ **Gemini Error**: {str(e)}"
             return
 
-    # ── 3. GROQ ───────────────────────────────────────────────────
+    # ── 3. GROQ (Ultra-Fast & Stable) ───────────────────────────────
     if provider.lower() == "groq":
         key = resolve_api_key(api_key, "Groq")
         if not key:
@@ -286,18 +270,27 @@ def generate_llm_response(
             for msg in messages:
                 formatted_messages.append({"role": msg["role"], "content": msg["content"]})
 
-            target_model = model_name if not model_name.startswith("gemini-") else "llama-3.3-70b-versatile"
-            stream = client.chat.completions.create(
-                model=target_model,
-                messages=formatted_messages,
-                stream=True,
-                temperature=temperature,
-            )
-            for chunk in stream:
-                content = chunk.choices[0].delta.content
-                if content:
-                    yield content
-            return
+            # Verified active Groq models
+            groq_candidates = [model_name, "openai/gpt-oss-20b", "qwen/qwen3.8-27b", "openai/gpt-oss-120b"]
+            seen_g = set()
+            models_to_try_g = [m for m in groq_candidates if m and not (m in seen_g or seen_g.add(m))]
+
+            for candidate_model in models_to_try_g:
+                try:
+                    stream = client.chat.completions.create(
+                        model=candidate_model,
+                        messages=formatted_messages,
+                        stream=True,
+                        temperature=temperature,
+                    )
+                    for chunk in stream:
+                        content = chunk.choices[0].delta.content
+                        if content:
+                            yield content
+                    return
+                except Exception as g_err:
+                    continue
+
         except Exception as e:
             yield f"❌ **Groq LLM Error**: {str(e)}"
             return

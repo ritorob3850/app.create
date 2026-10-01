@@ -405,7 +405,7 @@ with st.sidebar:
 
         # Model Selection based on Provider
         if "Gemini" in selected_provider:
-            model_options = ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash", "gemini-1.5-pro"]
+            model_options = ["gemini-3.8-flash", "gemini-2.5-flash"]
             st.session_state.model_name = st.selectbox("📦 Gemini Model", model_options)
             
             gem_input = st.text_input(
@@ -437,7 +437,7 @@ with st.sidebar:
             st.caption("Ensure Ollama is running (`ollama serve`).")
 
         else:  # Groq
-            groq_models = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768"]
+            groq_models = ["openai/gpt-oss-20b", "qwen/qwen3.8-27b", "openai/gpt-oss-120b"]
             st.session_state.model_name = st.selectbox("📦 Groq Model", groq_models)
             grq_input = st.text_input(
                 "🔑 Groq API Key",
