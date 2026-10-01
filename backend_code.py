@@ -11,8 +11,11 @@ Powers conversational AI 'Ultron' with:
 
 import os
 import random
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from typing import List, Dict, Generator
+
+# Indian Standard Time (UTC+5:30)
+IST = timezone(timedelta(hours=5, minutes=30))
 
 # Streamlit secrets check
 try:
@@ -39,6 +42,12 @@ try:
 except ImportError:
     Groq = None
 
+# Ultron Scratch Engine (local, zero-dependency AI)
+try:
+    from scratch_model import scratch_engine
+except ImportError:
+    scratch_engine = None
+
 
 ULTRON_DEFAULT_PROMPT = (
     "You are Ultron, a sophisticated, hyper-intelligent, and capable AI assistant. "
@@ -48,8 +57,8 @@ ULTRON_DEFAULT_PROMPT = (
 
 
 def get_time_based_salutation() -> str:
-    """Returns 'Good morning', 'Good afternoon', 'Good evening', or 'Good night' based on current hour."""
-    hour = datetime.now().hour
+    """Returns a time-based salutation using IST timezone."""
+    hour = datetime.now(IST).hour
     if 5 <= hour < 12:
         return "Good morning"
     elif 12 <= hour < 17:
@@ -62,27 +71,49 @@ def get_time_based_salutation() -> str:
 
 def get_dynamic_greeting(user_name: str = "") -> str:
     """
-    Generates a personalized Claude-style dynamic greeting based on time of day
-    and a randomized thoughtful prompt.
+    Generates a personalized, time-aware greeting.
+    Prompts are contextual to the actual time of day.
     """
     salutation = get_time_based_salutation()
     clean_name = (user_name or "").strip().title()
     name_clause = f", {clean_name}" if clean_name else ""
 
-    claude_prompts = [
-        "What are we building today?",
-        "What are we working on right now?",
-        "How can I assist your workflow today?",
-        "What challenge are we tackling today?",
-        "Ready to explore some new ideas?",
-        "What's on your mind today?",
-        "Where shall we start?",
-        "I'm at your command. What are we solving today?",
-        "How can I help you innovate today?",
-        "Good to see you!",
-    ]
+    hour = datetime.now(IST).hour
 
-    selected_prompt = random.choice(claude_prompts)
+    if 5 <= hour < 12:
+        prompts = [
+            "What are we building this morning?",
+            "Fresh start — let's get productive.",
+            "Ready to kick off the day?",
+            "Morning energy loaded. What's the plan?",
+            "Let's make today count.",
+        ]
+    elif 12 <= hour < 17:
+        prompts = [
+            "What are we working on this afternoon?",
+            "Afternoon grind — let's keep it rolling.",
+            "What's next on the agenda?",
+            "Let's power through the rest of the day.",
+            "What can I help you with right now?",
+        ]
+    elif 17 <= hour < 22:
+        prompts = [
+            "Wrapping up or just getting started?",
+            "Evening session — what are we tackling?",
+            "What's on your mind this evening?",
+            "Let's make the most of tonight.",
+            "Still going strong. What do you need?",
+        ]
+    else:
+        prompts = [
+            "Late night coding? I'm here for it.",
+            "Burning the midnight oil — let's go.",
+            "Night owl mode activated. What's up?",
+            "Can't sleep? Let's build something.",
+            "The quiet hours are the most productive.",
+        ]
+
+    selected_prompt = random.choice(prompts)
     return f"{salutation}{name_clause}. {selected_prompt}"
 
 
@@ -147,8 +178,21 @@ def generate_llm_response(
     temperature: float = 0.7,
 ) -> Generator[str, None, None]:
     """
-    Unified streaming generator supporting Groq (fast & verified), Google Gemini, and Ollama.
+    Unified streaming generator supporting Ultron 1.0, Groq, Google Gemini, and Ollama.
     """
+    # ── 0. ULTRON 1.0 (Local Scratch Engine — No API Key) ─────────
+    if provider.lower() == "ultron 1.0":
+        if scratch_engine is None:
+            yield "❌ Scratch engine could not be loaded. Check `scratch_model.py`."
+            return
+        try:
+            user_msg = messages[-1]["content"] if messages else "hello"
+            yield from scratch_engine.generate_stream(user_msg)
+            return
+        except Exception as e:
+            yield f"❌ **Ultron 1.0 Engine Error**: {str(e)}"
+            return
+
     # ── 1. GROQ (Primary High-Speed & Verified Working) ───────────
     if provider.lower() == "groq":
         key = resolve_api_key(api_key, "Groq")

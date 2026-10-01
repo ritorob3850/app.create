@@ -395,16 +395,28 @@ with st.sidebar:
         st.divider()
 
         # Provider Selector
-        provider_options = ["Groq (Recommended & Active)", "Google Gemini", "Ollama (Local & Free)"]
+        provider_options = ["Ultron 1.0 (Built-in Engine)", "Groq (Recommended & Active)", "Google Gemini", "Ollama (Local & Free)"]
+        current_idx = 0
+        if "Groq" in st.session_state.provider:
+            current_idx = 1
+        elif "Gemini" in st.session_state.provider:
+            current_idx = 2
+        elif "Ollama" in st.session_state.provider:
+            current_idx = 3
         selected_provider = st.selectbox(
             "🧠 AI Engine Provider",
             options=provider_options,
-            index=0 if "Groq" in st.session_state.provider else (1 if "Gemini" in st.session_state.provider else 2),
+            index=current_idx,
         )
         st.session_state.provider = selected_provider
 
         # Model Selection based on Provider
-        if "Gemini" in selected_provider:
+        if "Ultron 1.0" in selected_provider:
+            st.session_state.model_name = "ultron-scratch-v1"
+            st.success("⚡ Ultron 1.0 — Zero API keys needed!")
+            st.caption("Powered by the built-in Scratch Neural Engine.")
+
+        elif "Gemini" in selected_provider:
             model_options = ["gemini-3.8-flash", "gemini-2.5-flash"]
             st.session_state.model_name = st.selectbox("📦 Gemini Model", model_options)
             
@@ -476,7 +488,12 @@ with st.sidebar:
 
 # ── Clean Hero Banner (Zero Suggestion clutter) ───────────────
 if len(st.session_state.messages) == 0:
-    provider_label = "Gemini" if "Gemini" in st.session_state.provider else ("Ollama" if "Ollama" in st.session_state.provider else "Groq")
+    provider_label = (
+        "Ultron 1.0" if "Ultron" in st.session_state.provider
+        else "Gemini" if "Gemini" in st.session_state.provider
+        else "Ollama" if "Ollama" in st.session_state.provider
+        else "Groq"
+    )
     st.markdown(
         f"""
         <div class="hero-container">
@@ -513,7 +530,12 @@ if user_prompt := st.chat_input("Message Ultron..."):
         st.markdown(user_prompt)
 
     # 2. Stream Ultron's response from backend
-    provider_name = "Gemini" if "Gemini" in st.session_state.provider else ("Ollama" if "Ollama" in st.session_state.provider else "Groq")
+    provider_name = (
+        "Ultron 1.0" if "Ultron" in st.session_state.provider
+        else "Gemini" if "Gemini" in st.session_state.provider
+        else "Ollama" if "Ollama" in st.session_state.provider
+        else "Groq"
+    )
     active_key = st.session_state.gemini_key if provider_name == "Gemini" else st.session_state.groq_key
 
     with st.chat_message("assistant", avatar="🤖"):
