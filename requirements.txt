@@ -2,3 +2,5 @@ streamlit
 google-genai
 groq
 ollama
+duckduckgo-search
+requests
