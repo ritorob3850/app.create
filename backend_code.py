@@ -269,8 +269,8 @@ def generate_llm_response(
         key = resolve_api_key(api_key, "Gemini")
         if not key:
             yield (
-                "### ⚡ Gemini API Key Required\n\n"
-                "Please enter your **Gemini API Key** in the sidebar settings.\n\n"
+                "### Gemini API Key Required\n\n"
+                "Please enter your **Gemini API Key** in the settings.\n\n"
                 "👉 **Get a free key:** [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)"
             )
             return
